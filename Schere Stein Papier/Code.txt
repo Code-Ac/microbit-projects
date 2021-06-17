@@ -1,0 +1,33 @@
+let running = false
+let waiting = false
+let recieved = ""
+basic.forever(function () {
+    radio.setGroup(0)
+    recieved = ""
+
+    radio.onReceivedString(function (receivedString: string) {
+        if (receivedString == "StartGame") {
+            let freq = randint(100, 199)
+            radio.sendNumber(freq)
+            radio.setGroup(freq)
+            running = true
+        } else if (running) {
+            recieved = receivedString
+        }
+    })
+    input.onButtonPressed(Button.A, function () {
+        if (!running) {
+
+        }
+    })
+})
+
+while (true) {
+    if (running && recieved != null) {
+        for (let i = 0; i < 7; i++) {
+            led.toggle(i, 0)
+            led.toggle(i-2, 0)
+            basic.pause(100)
+        }
+    }
+}

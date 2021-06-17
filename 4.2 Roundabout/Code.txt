@@ -1,0 +1,26 @@
+basic.forever(function () {
+    wait()
+})
+
+function wait() {
+    for (let i = 0; i < 5; i++){
+        led.plot(i % 5, 0)
+        led.unplot((i - 1) % 5, 0)
+        basic.pause(100)
+    }
+    for (let i = 0; i < 5; i++){
+        led.plot(4, i % 5)
+        led.unplot(4, (i - 1) % 5)
+        basic.pause(100)
+    }
+    for (let i = 4; i >= 0; i--){
+        led.plot(i % 5, 4)
+        led.unplot((i + 1) % 5, 4)
+        basic.pause(100)
+    }
+    for (let i = 4; i >= 0; i--){
+        led.plot(0, i % 5)
+        led.unplot(0, (i + 1) % 5)
+        basic.pause(100)
+    }
+}

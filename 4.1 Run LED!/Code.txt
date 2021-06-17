@@ -1,0 +1,11 @@
+basic.forever(function () {
+    wait()
+    basic.pause(250)
+})
+
+let waitpos = 0
+function wait() {
+    led.plot(waitpos % 5, 0)
+    led.unplot((waitpos - 1) % 5, 0)
+    waitpos++
+}

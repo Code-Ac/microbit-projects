@@ -1,0 +1,235 @@
+//testing Area
+//serial.writeLine("93977084".substr(0, 7))
+
+
+
+let runningState = 0
+/*State|Type|Meanig
+ * 0 |bth| Waiting
+ * 1 | s | Open request sent
+ * 2 | c | Waiting for response on prepare
+ * 3 |bth| Game runing
+ * 4 |bth| Waiting for second input
+ * 5 |bth| Finished, solving and reset
+ */
+let waiting = false
+let waitpos = 0
+let gameid = generateUUID(8)
+let result = {
+    self: "",
+    enemy: ""
+}
+radio.setGroup(89)
+
+basic.forever(function () {
+    if (waiting) {
+        if (waitpos < 5) {
+            led.plot(waitpos, 0)
+        } else {
+            led.unplot(waitpos - 5, 0)
+        }
+        waitpos++
+        if (waitpos > 10) waitpos = 0
+        basic.pause(100)
+    }
+    if (runningState == 5) {
+        solve()
+        restart()
+    }
+})
+
+function onPress(button: string) {
+    switch (runningState) {
+        case 0:
+            runningState = 1
+            sendRadio("o")
+            waiting = true
+            break
+        case 4:
+            waiting = true
+            break
+        case 5:
+            waiting = false
+            break
+    }
+    if (runningState == 3 || runningState == 4) {
+        basic.clearScreen()
+        switch (button) {
+            case "A":
+                result.self = "schere"
+                basic.plotLeds(`
+                . . . . .
+                . . . . .
+                . . . . .
+                # . . . .
+                . . . . .
+                `)
+                break
+            case "B":
+                result.self = "stein"
+                basic.plotLeds(`
+                . . . . .
+                . . . . .
+                . . . . .
+                . . . . #
+                . . . . .
+                `)
+                break
+            case "AB":
+                result.self = "papier"
+                basic.plotLeds(`
+                . . . . .
+                . . . . .
+                . . . . .
+                . . # . .
+                . . . . .
+                `)
+                break
+        }
+        sendRadio("f" + result.self)
+        runningState++
+    }
+}
+
+function generateUUID(length: number) {
+    let random = randint(0, Math.pow(10, length)).toString()
+    while (random.length < length) {
+        random = "0" + random
+    }
+    return random
+}
+
+function sendRadio(ms: string) { //include gameid in radio send
+    radio.sendString(gameid + ms)
+    serial.writeLine(control.deviceName() + " > " + gameid + ms)
+}
+
+function start() { //on runningState 3
+    basic.showNumber(3)
+    basic.pause(200)
+    basic.showNumber(2)
+    basic.pause(200)
+    basic.showNumber(1)
+    basic.pause(200)
+    basic.clearScreen()
+    basic.plotLeds(`
+    . . . . .
+    . . . . .
+    # . # . #
+    # . # . #
+    . . . . .
+    `)
+}
+
+function solve() { //on runningState 5
+    basic.clearScreen()
+    for (let i = 1; i < 4; i+=2) {
+    switch (i == 1 ? result.enemy : result.self) {
+        case "schere":
+            led.plot(0, i)
+            break
+        case "stein":
+            led.plot(4, i)
+            break
+        case "papier":
+            led.plot(2, i)
+            break
+    }}
+    basic.pause(5000)
+    let resultString = ""
+    if (result.self == result.enemy) {
+        resultString = "PAT"
+        basic.showLeds(`
+        . . . . .
+        . . . . .
+        # # # # #
+        . . . . .
+        . . . . .
+        `)
+    } else {switch (result.self + result.enemy) {
+        case "scherestein":
+        case "steinpapier":
+        case "papierschere":
+            resultString = "LOSE"
+            basic.showLeds(`
+            # . . . #
+            . # . # .
+            . . # . .
+            . # . # .
+            # . . . #
+            `)
+            break
+        default:
+            resultString = "WIN!"
+            basic.showLeds(`
+            . . . . .
+            . . . . #
+            . . . # .
+            # . # . .
+            . # . . .
+            `)
+            break
+    }}
+    serial.writeLine(control.deviceName() + " " + resultString)
+    basic.pause(2500)
+
+}
+
+function restart() {
+    basic.showString("b")
+    radio.sendString("") //initialize radio
+    gameid = generateUUID(8) //new Game UUID
+    waiting = false //for forced reboot
+    result.enemy = "" //reset...
+    result.self = ""
+    runningState = 0
+    basic.pause(10)
+    basic.showString("R")
+    serial.writeLine(control.deviceName() + " Restart Complete :)")
+}
+
+//registrer Events
+input.onButtonPressed(Button.A, () => onPress("A"))
+input.onButtonPressed(Button.B, () => onPress("B"))
+input.onButtonPressed(Button.AB, () => onPress("AB"))
+input.onLogoEvent(TouchButtonEvent.Pressed, () => restart())
+radio.onReceivedString((recieved: string) => {
+    serial.writeLine(control.deviceName() + " < " + recieved)
+    if (recieved.substr(0, 8) == gameid || runningState < 2) {
+        switch (recieved.charAt(8)) {
+            case "o": //c | open request
+                if (runningState == 0){
+                    runningState = 2
+                    sendRadio("p")
+                }
+                break
+            case "p": //s | accept open answer
+                if (runningState == 1) {
+                    gameid = recieved.substr(0, 8)
+                    waiting = false
+                    runningState = 3
+                    sendRadio("s")
+                    start()
+                }
+                break
+            case "s": //c | start game
+                runningState = 3
+                start()
+                break
+            case "f": //both | typed in 
+                runningState++
+                if (runningState == 4) {
+                    waiting = true
+                }
+                result.enemy = recieved.substr(9)
+                serial.writeLine("--" + recieved.substr(9))
+                break
+            default: //Interfering Protocol on same Game ID but no valid Message
+                //serial.writeLine("unkown protocol interfering: \"" + recieved + "\"")
+                break
+        }
+    }
+})
+
+//Start!
+restart()

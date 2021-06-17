@@ -1,0 +1,8 @@
+basic.forever(function () {
+    led.plot(0, 0)
+    led.toggle(4, 4)
+    basic.pause(1000)
+    led.unplot(0, 0)
+    led.toggle(4, 4)
+    basic.pause(1000)
+})
