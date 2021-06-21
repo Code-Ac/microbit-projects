@@ -1,8 +1,3 @@
-//testing Area
-//serial.writeLine("93977084".substr(0, 7))
-
-
-
 let runningState = 0
 /*State|Type|Meanig
  * 0 |bth| Waiting
